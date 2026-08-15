@@ -1,11 +1,13 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sudoku/services/sudoku_difficulty_analyzer.dart';
 import 'package:sudoku/services/sudoku_generator.dart';
 import 'package:sudoku/services/sudoku_solver.dart';
 
 void main() {
   const solver = SudokuSolver();
+  const analyzer = SudokuDifficultyAnalyzer();
 
   test('uretilen puzzle 81 hucre icerir ve yalnizca 0-9 degerleri tasir', () {
     final generator = SudokuGenerator(random: Random(1));
@@ -36,7 +38,18 @@ void main() {
         inInclusiveRange(target.minEmptyCells, target.maxEmptyCells),
       );
       expect(solver.countSolutions(puzzle), 1);
+      expect(analyzer.analyze(puzzle).difficulty, difficulty);
     }
+  });
+
+  test('istenen difficulty seviyesine uygun puzzle uretir', () {
+    final generator = SudokuGenerator(random: Random(6));
+    final puzzle = generator.generatePuzzle('Orta');
+    final analysis = analyzer.analyze(puzzle);
+
+    expect(analysis.isSolvable, isTrue);
+    expect(analysis.isUnique, isTrue);
+    expect(analysis.difficulty, 'Orta');
   });
 
   test('ayni generator instance tekrar eden fingerprint dondurmez', () {

@@ -1,13 +1,17 @@
 import 'dart:math';
 
+import 'sudoku_difficulty_analyzer.dart';
 import 'sudoku_solver.dart';
 
 class SudokuGenerator {
   SudokuGenerator({
     SudokuSolver solver = const SudokuSolver(),
+    SudokuDifficultyAnalyzer? difficultyAnalyzer,
     Random? random,
-    this.maxAttempts = 20,
+    this.maxAttempts = 80,
   }) : _solver = solver,
+       _difficultyAnalyzer =
+           difficultyAnalyzer ?? SudokuDifficultyAnalyzer(solver: solver),
        _random = random ?? Random();
 
   static const Map<String, SudokuDifficultyTarget> difficultyTargets = {
@@ -19,6 +23,7 @@ class SudokuGenerator {
   };
 
   final SudokuSolver _solver;
+  final SudokuDifficultyAnalyzer _difficultyAnalyzer;
   final Random _random;
   final int maxAttempts;
   final Set<String> _generatedFingerprints = <String>{};
@@ -34,8 +39,21 @@ class SudokuGenerator {
     }
 
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
-      final solution = generateCompletedGrid();
-      final puzzle = _createUniquePuzzle(solution, target);
+      final List<int> puzzle;
+      try {
+        final solution = generateCompletedGrid();
+        puzzle = _createUniquePuzzle(solution, target);
+      } on SudokuGenerationException {
+        continue;
+      }
+
+      final analysis = _difficultyAnalyzer.analyze(puzzle);
+      if (!analysis.isSolvable ||
+          !analysis.isUnique ||
+          analysis.difficulty != difficulty) {
+        continue;
+      }
+
       final fingerprint = createFingerprint(puzzle);
 
       if (_generatedFingerprints.add(fingerprint)) {
@@ -44,7 +62,7 @@ class SudokuGenerator {
     }
 
     throw SudokuGenerationException(
-      'Benzersiz Sudoku puzzle üretilemedi. Maksimum deneme sayısı: $maxAttempts.',
+      'İstenen zorlukta benzersiz Sudoku puzzle üretilemedi. Maksimum deneme sayısı: $maxAttempts.',
     );
   }
 
