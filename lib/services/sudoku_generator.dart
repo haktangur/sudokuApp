@@ -29,6 +29,10 @@ class SudokuGenerator {
   final Set<String> _generatedFingerprints = <String>{};
 
   List<int> generatePuzzle(String difficulty) {
+    return generateGame(difficulty).puzzle;
+  }
+
+  SudokuGeneratedGame generateGame(String difficulty) {
     final target = difficultyTargets[difficulty];
     if (target == null) {
       throw ArgumentError.value(
@@ -40,8 +44,10 @@ class SudokuGenerator {
 
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       final List<int> puzzle;
+      List<int> solution;
+
       try {
-        final solution = generateCompletedGrid();
+        solution = generateCompletedGrid();
         puzzle = _createUniquePuzzle(solution, target);
       } on SudokuGenerationException {
         continue;
@@ -57,12 +63,17 @@ class SudokuGenerator {
       final fingerprint = createFingerprint(puzzle);
 
       if (_generatedFingerprints.add(fingerprint)) {
-        return puzzle;
+        return SudokuGeneratedGame(
+          puzzle: puzzle,
+          solution: solution,
+          difficulty: difficulty,
+        );
       }
     }
 
     throw SudokuGenerationException(
-      'İstenen zorlukta benzersiz Sudoku puzzle üretilemedi. Maksimum deneme sayısı: $maxAttempts.',
+      'İstenen zorlukta benzersiz Sudoku puzzle üretilemedi. '
+      'Maksimum deneme sayısı: $maxAttempts.',
     );
   }
 
@@ -222,4 +233,16 @@ class SudokuGenerationException implements Exception {
 
   @override
   String toString() => 'SudokuGenerationException: $message';
+}
+
+class SudokuGeneratedGame {
+  const SudokuGeneratedGame({
+    required this.puzzle,
+    required this.solution,
+    required this.difficulty,
+  });
+
+  final List<int> puzzle;
+  final List<int> solution;
+  final String difficulty;
 }
