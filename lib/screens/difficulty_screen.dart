@@ -6,7 +6,13 @@ class DifficultyScreen extends StatelessWidget {
   const DifficultyScreen({super.key});
 
   static const String routeName = '/difficulty';
-  static const List<String> _difficulties = ['Kolay', 'Orta', 'Zor', 'Uzman'];
+  static const List<String> _difficulties = [
+    'Çok Kolay',
+    'Kolay',
+    'Orta',
+    'Zor',
+    'Uzman',
+  ];
 
   @override
   Widget build(BuildContext context) {
