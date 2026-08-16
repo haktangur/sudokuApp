@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/game_storage.dart';
+import 'game_screen.dart';
 
 class FailedPuzzlesScreen extends StatefulWidget {
   const FailedPuzzlesScreen({super.key});
@@ -33,16 +34,13 @@ class _FailedPuzzlesScreenState extends State<FailedPuzzlesScreen> {
         _games = games;
         _loading = false;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
+        _games = [];
         _loading = false;
       });
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Bulmacalar yüklenemedi: $error')));
     }
   }
 
@@ -51,43 +49,30 @@ class _FailedPuzzlesScreenState extends State<FailedPuzzlesScreen> {
     await _loadGames();
   }
 
-  Future<void> _confirmDelete(int id) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Bulmaca silinsin mi?'),
-          content: const Text(
-            'Bu kaydedilmiş bulmaca kalıcı olarak silinecek.',
+  Future<void> _openGame(Map<String, dynamic> game) async {
+    try {
+      final savedGame = SavedGame.fromJson(game);
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GameScreen(
+            difficulty: savedGame.difficulty,
+            savedGame: savedGame,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Vazgeç'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Sil'),
-            ),
-          ],
-        );
-      },
-    );
+        ),
+      );
 
-    if (shouldDelete == true) {
-      await _deleteGame(id);
+      if (mounted) {
+        await _loadGames();
+      }
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Bulmaca açılamadı: $error')));
     }
-  }
-
-  void _openGame(Map<String, dynamic> game) {
-    Navigator.pushNamed(
-      context,
-      '/game',
-      arguments: {
-        'difficulty': game['difficulty'] as String,
-        'failedGame': game,
-      },
-    );
   }
 
   String _formatTime(int seconds) {
@@ -116,37 +101,34 @@ class _FailedPuzzlesScreenState extends State<FailedPuzzlesScreen> {
                 ),
               ),
             )
-          : RefreshIndicator(
-              onRefresh: _loadGames,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _games.length,
-                itemBuilder: (context, index) {
-                  final game = _games[index];
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _games.length,
+              itemBuilder: (context, index) {
+                final game = _games[index];
 
-                  final id = game['id'] as int;
-                  final difficulty = game['difficulty'] as String;
-                  final elapsed =
-                      (game['elapsedSeconds'] as num?)?.toInt() ?? 0;
+                final id = game['id'] as int;
+                final difficulty = game['difficulty'] as String;
+                final elapsed = game['elapsedSeconds'] as int;
+                final mistakes = game['mistakes'] as int;
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.grid_4x4_rounded),
-                      ),
-                      title: Text(difficulty),
-                      subtitle: Text('Süre: ${_formatTime(elapsed)}'),
-                      trailing: IconButton(
-                        tooltip: 'Bulmacayı sil',
-                        icon: const Icon(Icons.delete_outline_rounded),
-                        onPressed: () => _confirmDelete(id),
-                      ),
-                      onTap: () => _openGame(game),
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    leading: const Icon(Icons.grid_4x4_rounded),
+                    title: Text(difficulty),
+                    subtitle: Text(
+                      'Süre: ${_formatTime(elapsed)}  •  Hata: $mistakes/3',
                     ),
-                  );
-                },
-              ),
+                    trailing: IconButton(
+                      tooltip: 'Bulmacayı sil',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _deleteGame(id),
+                    ),
+                    onTap: () => _openGame(game),
+                  ),
+                );
+              },
             ),
     );
   }

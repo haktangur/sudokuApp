@@ -9,11 +9,14 @@ import '../widgets/number_pad.dart';
 import '../widgets/sudoku_board.dart';
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({required this.difficulty, super.key});
+  const GameScreen({required this.difficulty, this.savedGame, super.key});
 
   static const String routeName = '/game';
 
   final String difficulty;
+
+  // Kaybedilen bulmacalar ekranından açılırken kullanılır.
+  final SavedGame? savedGame;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -42,8 +45,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addObserver(this);
-    _loadGame();
+
+    // Eğer kaybedilen bulmacadan geldiysek direkt onu aç.
+    if (widget.savedGame != null) {
+      _restoreSavedGame(widget.savedGame!);
+    } else {
+      _loadGame();
+    }
   }
 
   @override
@@ -63,6 +73,36 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     }
   }
 
+  void _restoreSavedGame(SavedGame saved) {
+    if (saved.puzzle.length != 81 ||
+        saved.solution.length != 81 ||
+        saved.values.length != 81 ||
+        saved.notes.length != 81) {
+      _startNewGame(clearSaved: false);
+      return;
+    }
+
+    try {
+      final game = SudokuGame(
+        puzzle: List<int>.from(saved.puzzle),
+        solution: List<int>.from(saved.solution),
+      );
+
+      _game = game;
+      _values = List<int>.from(saved.values);
+      _notes = saved.notes.map((note) => Set<int>.from(note)).toList();
+
+      _mistakes = widget.savedGame != null ? 0 : saved.mistakes;
+      _elapsedSeconds = saved.elapsedSeconds;
+      _restoredGame = true;
+      _loading = false;
+
+      _startTimer();
+    } catch (_) {
+      _startNewGame(clearSaved: false);
+    }
+  }
+
   Future<void> _loadGame() async {
     try {
       final saved = await _storage.loadGame();
@@ -73,21 +113,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           saved.solution.length == 81 &&
           saved.values.length == 81 &&
           saved.notes.length == 81) {
-        final game = SudokuGame(puzzle: saved.puzzle, solution: saved.solution);
-
-        if (!mounted) return;
-
-        setState(() {
-          _game = game;
-          _values = List<int>.from(saved.values);
-          _notes = saved.notes.map((note) => Set<int>.from(note)).toList();
-          _mistakes = saved.mistakes;
-          _elapsedSeconds = saved.elapsedSeconds;
-          _loading = false;
-          _restoredGame = true;
-        });
-
-        _startTimer();
+        _restoreSavedGame(saved);
         return;
       }
 
@@ -266,8 +292,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         _mistakes++;
       });
 
-      await _saveCurrentGame();
-
       if (_mistakes >= 3) {
         _timer?.cancel();
 
@@ -292,6 +316,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         if (mounted) {
           _showGameOverDialog();
         }
+      } else {
+        await _saveCurrentGame();
       }
 
       return;
@@ -396,8 +422,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           return AlertDialog(
             title: const Text('Tebrikler! 🎉'),
             content: Text(
-              '${widget.difficulty} bulmacayı ${_formatTime(_elapsedSeconds)} '
-              'sürede tamamladın.',
+              '${widget.difficulty} bulmacayı '
+              '${_formatTime(_elapsedSeconds)} sürede tamamladın.',
             ),
             actions: [
               FilledButton(
